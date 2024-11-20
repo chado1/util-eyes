@@ -19,12 +19,18 @@ primary_region = "sjc"
 
 [mounts]
   source = "util_eyes_data"
-  destination = "/app/instance"  # Specify where SQLite db should be mounted
+  destination = "/app/instance"  # For SQLite during development/testing
   initial_size_gb = 1
 
 [env]
   FLASK_ENV = "production"
   FLASK_APP = "app.py"
 
-# Note: Don't put SECRET_KEY here, use fly secrets instead:
+# Note: The following secrets should be set using fly secrets:
 # flyctl secrets set SECRET_KEY=your-secret-key
+# 
+# For PostgreSQL, set these secrets:
+# flyctl secrets set DATABASE_URL=postgresql://user:password@host:5432/dbname
+# flyctl secrets set POSTGRES_USER=your-postgres-user
+# flyctl secrets set POSTGRES_PASSWORD=your-postgres-password
+# flyctl secrets set POSTGRES_HOST=your-postgres-host
