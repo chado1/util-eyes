@@ -1,136 +1,149 @@
-# Util-Eyes Time Journal Application
+# Util-Eyes Time Tracking Application
 
-A simple web application for tracking and analyzing time utilization. This Flask-based application helps users monitor their productivity by comparing available time against actual time spent on personal projects or other stuff you want to accomplish, providing insights into time management and efficiency.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A secure web application for tracking personal time utilization with robust authentication and security features.
 
 ## Features
 
-### User Management
-- User registration and authentication system
-- Secure password hashing
-- Role-based access control (Admin/Regular users)
-- User profile management
+- Secure user authentication with password policy enforcement
+- Role-based access control (Admin and Regular users)
+- Time tracking with utilization rates
+- Admin dashboard with data visualization
+  * Daily utilization chart
+  * Daily entries chart
+  * Interactive dual y-axis support
+- Rate limiting for login attempts
+- Environment-specific configurations
+- Database flexibility (SQLite/PostgreSQL support)
 
-### Time Tracking
-- Log daily time entries with:
-  - Available time allocation
-  - Actual time spent
-  - Date tracking
-  - Detailed notes
-- Edit and delete time entries
-- Historical data viewing
+## Setup
 
-### Analytics & Dashboard
-- Overall time utilization metrics
-- Productivity percentage calculations
-- Paginated view of time entries
-- Date range filtering
-- Visual representation of time data
-
-### Admin Features
-- User management capabilities
-- Admin dashboard for system overview
-- Ability to create/modify/delete users
-- Toggle admin privileges
-
-## Technical Stack
-
-- **Backend Framework**: Flask (Python)
-- **Database**: SQLite with SQLAlchemy ORM
-- **Authentication**: Flask-Login
-- **Frontend**: 
-  - HTML5
-  - Bootstrap 5 for responsive design
-  - JavaScript for interactivity
-- **Security**: 
-  - Password hashing with Werkzeug
-  - CSRF protection
-  - Session management
-
-## Installation
-
-1. Clone the repository:
+1. Create a virtual environment (recommended):
 ```bash
-git clone [repository-url]
-cd util-eyes
-```
-
-2. Create and activate a virtual environment:
-```bash
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. Install required dependencies:
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Initialize the database:
-```bash
-python app.py
+3. Create a `.env` file in the project root:
+```
+FLASK_ENV=development
+FLASK_DEBUG=1
+SECRET_KEY=your-secret-key-here
+DATABASE_URL=sqlite:///timejournal.db  # For SQLite
+# For PostgreSQL use: DATABASE_URL=postgresql://user:password@host:port/dbname
 ```
 
-## Configuration
+4. Run the application:
+```bash
+python3 app.py
+```
 
-The application uses the following configuration:
-- SQLite database (timejournal.db)
-- Secret key for session management
-- Configurable pagination settings
-- Customizable time entry validation rules
+The application will automatically:
+- Initialize the database
+- Create required tables
+- Create an initial admin user if none exists
 
-## Usage Guide
+## Default Admin Account
 
-1. **First Time Setup**:
-   - Register an account (first user automatically becomes admin)
-   - Login with your credentials
+On first run, an admin account is created with these credentials:
+- Username: admin
+- Password: AdminPass123!
 
-2. **Adding Time Entries**:
-   - Navigate to the dashboard
-   - Click "Add Entry"
-   - Fill in the date, available time, actual time, and optional notes
-   - Submit the entry
+## Password Requirements
 
-3. **Managing Entries**:
-   - View entries on the dashboard
-   - Edit or delete entries as needed
-   - Filter entries by date range
-   - Monitor your productivity metrics
+New user passwords must:
+- Be at least 8 characters long
+- Contain at least one uppercase letter
+- Contain at least one lowercase letter
+- Contain at least one number
+- Contain at least one special character (!@#$%^&*)
 
-4. **Admin Functions**:
-   - Access admin dashboard
-   - Manage user accounts
-   - Toggle admin privileges
-   - View system-wide statistics
+## Database Configuration
+
+### SQLite (Default Development Database)
+The application uses SQLite by default for development. The database file (timejournal.db) is created automatically in the instance folder when the application starts.
+
+### PostgreSQL (Production Database)
+For production deployments, PostgreSQL is recommended. To migrate from SQLite to PostgreSQL:
+
+1. Ensure PostgreSQL is installed and running
+2. Set up PostgreSQL environment variables:
+```bash
+POSTGRES_USER=your_user
+POSTGRES_PASSWORD=your_password
+POSTGRES_HOST=your_host
+POSTGRES_PORT=5432
+```
+
+3. Run the migration script:
+```bash
+python3 production_migration.py
+```
+
+The migration script will:
+- Create a new PostgreSQL database
+- Migrate all users and time entries
+- Verify data integrity
+- Generate detailed migration logs
+
+## Deployment
+
+### Fly.io Deployment
+The application is configured for deployment on Fly.io:
+
+1. Install the Fly.io CLI
+2. Configure PostgreSQL database
+3. Deploy the application:
+```bash
+fly deploy
+```
+
+Environment variables are configured in `fly.toml` and through Fly.io secrets.
 
 ## Development
 
-To run the application in development mode:
+### Testing
+Run the test suite:
 ```bash
-python app.py
-```
-The application will be available at `http://localhost:5000`
-
-## Production Deployment
-
-For production deployment:
-1. Configure your production database
-2. Set up proper environment variables
-3. Use gunicorn as the WSGI server:
-```bash
-gunicorn -c gunicorn.conf.py app:app
+pytest test_app.py -v
 ```
 
-## Security Notes
+## Security Features
 
-- All passwords are hashed before storage
-- Session management is implemented securely
-- Input validation is performed on all forms
-- CSRF protection is enabled
+- Password hashing using Werkzeug's security functions
+- Rate limiting on login attempts
+- Security headers for production environment
+- CSRF protection
+- Role-based access control
+- Input validation and sanitization
 
-## License
+## Environment Configuration
 
-[Specify your license here]
+The application supports different configurations for development and production environments:
+- Development: Debug mode enabled, detailed error messages
+- Production: Security headers enabled, minimal error information exposed
 
-## Contributing
+## Project Structure
 
-[Add contribution guidelines if applicable]
+```
+util-eyes/
+├── app.py              # Main application file
+├── requirements.txt    # Python dependencies
+├── test_app.py        # Test suite
+├── .env               # Environment configuration
+├── production_migration.py  # PostgreSQL migration script
+└── timejournal.db     # SQLite database (auto-generated)
+```
+
+## Future Enhancements
+
+- Multi-factor authentication
+- Advanced time tracking analytics
+- External authentication providers
+- More comprehensive logging

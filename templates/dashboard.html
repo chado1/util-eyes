@@ -1,357 +1,327 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Util-Eyes - Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3b82f6',
-                    }
-                }
-            }
-        }
-    </script>
-</head>
-<body class="bg-gray-100">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-lg">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6">
-            <div class="flex justify-between">
-                <div class="flex space-x-4">
-                    <div class="flex items-center py-4 px-2">
-                        <a href="{{ url_for('dashboard') }}" class="text-xl font-bold text-primary">Util-Eyes 👀</a>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-3 px-2">
-                    {% if current_user.is_admin %}
-                    <a href="{{ url_for('admin_dashboard') }}" class="py-2 px-4 text-gray-500 hover:text-gray-700">Admin</a>
-                    {% endif %}
-                    <a href="{{ url_for('logout') }}" class="py-2 px-4 text-gray-500 hover:text-gray-700">Logout</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+{% extends "base.html" %}
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-            <div class="mb-4 relative bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded" role="alert">
-                <p>{{ message }}</p>
-                <button type="button" class="absolute top-0 right-0 mt-4 mr-4 text-blue-700 hover:text-blue-900" onclick="this.parentElement.remove()">
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                    </svg>
-                </button>
-            </div>
-            {% endfor %}
-        {% endif %}
-        {% endwith %}
-
-        <!-- Time Entry Form -->
-        <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-            <h2 class="text-xl sm:text-2xl font-bold mb-4">Add Time Entry</h2>
-            <form method="POST" action="{{ url_for('add_entry') }}" class="space-y-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                        <label for="date" class="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                        <input type="date" id="date" name="date" required 
-                               class="w-full px-3 py-2 rounded-md border-gray-400 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
-                    </div>
-                    <div>
-                        <label for="available_time" class="block text-sm font-medium text-gray-700 mb-2">Available Time (hours)</label>
-                        <input type="number" id="available_time" name="available_time" step="0.25" min="0" max="24" required 
-                               class="w-full px-3 py-2 rounded-md border-gray-400 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
-                    </div>
-                    <div>
-                        <label for="actual_time" class="block text-sm font-medium text-gray-700 mb-2">Actual Time (hours)</label>
-                        <input type="number" id="actual_time" name="actual_time" step="0.25" min="0" max="24" required 
-                               class="w-full px-3 py-2 rounded-md border-gray-400 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
-                    </div>
+{% block content %}
+<div class="space-y-6">
+    <!-- Time Entry Form -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-bold mb-4">Add Time Entry</h2>
+        <form method="POST" action="{{ url_for('add_entry') }}" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <input type="date" id="date" name="date" required 
+                           class="w-full h-10 px-3 rounded-md border border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
                 </div>
                 <div>
-                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                    <textarea id="notes" name="notes" rows="2" 
-                              class="w-full px-3 py-2 rounded-md border-gray-400 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"></textarea>
+                    <label for="available_time" class="block text-sm font-medium text-gray-700 mb-1">Available Time (hours)</label>
+                    <input type="number" id="available_time" name="available_time" required step="0.25" min="0" max="24"
+                           class="w-full h-10 px-3 rounded-md border border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
                 </div>
-                <div class="flex justify-end">
-                    <button type="submit" 
-                            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:ring-primary focus:ring-opacity-50">
-                        Add Entry
-                    </button>
+                <div>
+                    <label for="actual_time" class="block text-sm font-medium text-gray-700 mb-1">Actual Time (hours)</label>
+                    <input type="number" id="actual_time" name="actual_time" required step="0.25" min="0" max="24"
+                           class="w-full h-10 px-3 rounded-md border border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
                 </div>
-            </form>
-        </div>
+            </div>
+            <div>
+                <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea id="notes" name="notes" rows="2"
+                    class="w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"></textarea>
+            </div>
+            <div class="flex justify-end">
+                <button type="submit"
+                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    Add Entry
+                </button>
+            </div>
+        </form>
+    </div>
 
-        <!-- Date Range Filter -->
-        <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-            <h2 class="text-xl sm:text-2xl font-bold mb-4">Filter Entries</h2>
-            <form id="filterForm" method="GET" action="{{ url_for('dashboard') }}" class="space-y-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label for="startDate" class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                        <input type="date" id="startDate" name="start_date" value="{{ request.args.get('start_date', '') }}"
-                            class="w-full px-3 py-2 rounded-md border-gray-400 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
-                    </div>
-                    <div>
-                        <label for="endDate" class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                        <input type="date" id="endDate" name="end_date" value="{{ request.args.get('end_date', '') }}"
-                            class="w-full px-3 py-2 rounded-md border-gray-400 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
-                    </div>
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="showAllData()" 
-                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring focus:ring-primary focus:ring-opacity-50">
-                        Clear Filters
-                    </button>
-                    <button type="submit" 
-                            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:ring-primary focus:ring-opacity-50">
-                        Apply Filters
-                    </button>
-                </div>
-            </form>
-        </div>
+<!-- Utilization Stats and Filters Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <!-- Overall Utilization Card -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Overall Utilization</h3>
+        <p class="text-3xl font-bold text-primary" id="overall-utilization-value">{{ "%.1f"|format(overall_utilization) }}%</p>
+        <p class="text-sm text-gray-500 mt-1">Average across all entries</p>
+    </div>
 
-        <!-- Overall Efficiency Card -->
-        <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900">Overall Utilization</h3>
-                <p class="text-3xl font-bold text-primary">{{ "%.1f"|format(overall_utilization) }}%</p>
+    <!-- Date Filter Card -->
+    <div class="md:col-span-2 bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Date Range Filter</h3>
+        <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+            <div class="flex-1">
+                <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input type="date" id="startDate" onchange="updateDateRange()"
+                    class="w-full h-10 px-3 rounded-md border border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
+            </div>
+            <div class="flex-1">
+                <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input type="date" id="endDate" onchange="updateDateRange()"
+                    class="w-full h-10 px-3 rounded-md border border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
+            </div>
+            <div class="flex items-end">
+                <button onclick="showAllData()"
+                    class="h-10 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    Show All
+                </button>
             </div>
         </div>
-        <!-- Chart -->
-        <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-            <div class="h-[350px] sm:h-[450px]">
-                <canvas id="timeChart"></canvas>
-            </div>
+    </div>
+</div>
+    <!-- Time Utilization Chart -->
+    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+            <h2 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-0">Time Utilization</h2>
+          
         </div>
+        <div class="relative" style="height: 300px;">
+            <canvas id="timeChart"></canvas>
+        </div>
+    </div>
 
-        <!-- Recent Entries -->
-        <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                <h2 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-0">Recent Entries</h2>
+    <!-- Recent Entries -->
+    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+            <h2 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-0">Recent Entries</h2>
+            <div class="flex items-center space-x-4">
+                <button onclick="exportEntries()" 
+                        class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export CSV
+                </button>
                 <div class="flex items-center space-x-2">
                     <label class="text-sm text-gray-600">Entries per page:</label>
-                    <select id="per-page" onchange="updatePerPage(this.value)"
-                            class="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring focus:ring-primary focus:ring-opacity-50">
+                    <select onchange="changePerPage(this.value)" 
+                            class="rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-sm">
                         <option value="5" {% if per_page == 5 %}selected{% endif %}>5</option>
                         <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
                     </select>
                 </div>
             </div>
-
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available Time</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Time</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilization</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for entry in entries %}
-                        <tr>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ entry.date.strftime('%Y-%m-%d') }}</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ entry.available_time }} hrs</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ entry.actual_time }} hrs</td>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                {% set utilization = (entry.actual_time / entry.available_time * 100) if entry.available_time > 0 else 0 %}
-                                {% if utilization >= 67 %}
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                {% elif utilization >= 34 %}
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                {% else %}
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                {% endif %}
-                                    {{ "%.1f"|format(utilization) }}%
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-sm text-gray-900">
-                                <div class="max-w-xs truncate">{{ entry.notes or '' }}</div>
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                <div class="flex items-center space-x-2">
-                                    <a href="{{ url_for('edit_entry', entry_id=entry.id) }}" class="text-primary hover:text-blue-600">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available Time</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Time</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilization</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for entry in entries %}
+                    <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ entry.available_time }}h</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ entry.actual_time }}h</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                       {% if (entry.actual_time / entry.available_time * 100) >= 80 %}
+                                       bg-green-100 text-green-800
+                                       {% elif (entry.actual_time / entry.available_time * 100) >= 60 %}
+                                       bg-yellow-100 text-yellow-800
+                                       {% else %}
+                                       bg-red-100 text-red-800
+                                       {% endif %}">
+                                {{ "%.1f"|format(entry.actual_time / entry.available_time * 100) }}%
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ entry.notes or '' }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                            <div class="flex space-x-2">
+                                <a href="{{ url_for('edit_entry', entry_id=entry.id) }}" 
+                                   class="text-primary hover:text-blue-600" title="Edit">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                    </svg>
+                                </a>
+                                <form method="POST" action="{{ url_for('delete_entry', entry_id=entry.id) }}" class="inline" 
+                                      onsubmit="return confirm('Are you sure you want to delete this entry?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="text-red-600 hover:text-red-700" title="Delete">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                                         </svg>
-                                    </a>
-                                    <form action="{{ url_for('delete_entry', entry_id=entry.id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this entry?');">
-                                        <button type="submit" class="text-red-600 hover:text-red-800">
-                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                            </svg>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            <div class="flex flex-col sm:flex-row justify-between items-center mt-4 space-y-2 sm:space-y-0">
-                <div class="text-sm text-gray-700">
-                    Showing entries {{ (pagination.page - 1) * per_page + 1 }} to 
-                    {{ min((pagination.page) * per_page, pagination.total) }} of 
-                    {{ pagination.total }}
-                </div>
-                <div class="flex justify-center space-x-1">
-                    {% if pagination.has_prev %}
-                    <a href="{{ url_for('dashboard', page=pagination.prev_num, per_page=per_page, start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}"
-                       class="px-3 py-1 rounded-md text-sm text-gray-700 hover:bg-gray-100">Previous</a>
-                    {% endif %}
-                    
-                    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                        {% if page_num %}
-                            {% if page_num == pagination.page %}
-                            <span class="px-3 py-1 rounded-md text-sm text-white bg-primary">{{ page_num }}</span>
-                            {% else %}
-                            <a href="{{ url_for('dashboard', page=page_num, per_page=per_page, start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}"
-                               class="px-3 py-1 rounded-md text-sm text-gray-700 hover:bg-gray-100">{{ page_num }}</a>
-                            {% endif %}
-                        {% else %}
-                            <span class="px-3 py-1 text-sm text-gray-700">...</span>
-                        {% endif %}
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
                     {% endfor %}
-                    
-                    {% if pagination.has_next %}
-                    <a href="{{ url_for('dashboard', page=pagination.next_num, per_page=per_page, start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}"
-                       class="px-3 py-1 rounded-md text-sm text-gray-700 hover:bg-gray-100">Next</a>
-                    {% endif %}
-                </div>
+                </tbody>
+            </table>
+        </div>
+        <div class="flex flex-col sm:flex-row justify-between items-center mt-4 space-y-2 sm:space-y-0">
+            <div class="text-sm text-gray-700">
+                Showing entries {{ (pagination.page - 1) * per_page + 1 }} to 
+                {{ min((pagination.page) * per_page, pagination.total) }} of 
+                {{ pagination.total }}
+            </div>
+            <div class="flex space-x-2">
+                {% if pagination.has_prev %}
+                <a href="{{ url_for('dashboard', page=pagination.prev_num, per_page=per_page) }}"
+                   class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    Previous
+                </a>
+                {% endif %}
+                {% if pagination.has_next %}
+                <a href="{{ url_for('dashboard', page=pagination.next_num, per_page=per_page) }}"
+                   class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    Next
+                </a>
+                {% endif %}
             </div>
         </div>
-    </main>
+    </div>
+</div>
 
-    <script>
-        let timeChart = null;
-        
-        function updateDateRange() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            if (startDate && endDate) {
-                fetchFilteredData(startDate, endDate);
-            }
-        }
-
-        function showAllData() {
-            document.getElementById('startDate').value = '';
-            document.getElementById('endDate').value = '';
-            document.getElementById('filterForm').submit();
-        }
-
-        function fetchFilteredData(startDate, endDate) {
-            const url = new URL('/get_entries', window.location.origin);
-            if (startDate && endDate) {
-                url.searchParams.append('start_date', startDate);
-                url.searchParams.append('end_date', endDate);
-            }
-
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    updateChart(data);
-                });
-        }
-
-        function updateChart(data) {
-            if (timeChart) {
-                timeChart.destroy();
-            }
-
-            const ctx = document.getElementById('timeChart').getContext('2d');
-            timeChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.map(entry => entry.date),
-                    datasets: [
-                        {
-                            label: 'Daily Utilization Rate (%)',
-                            data: data.map(entry => entry.utilization_rate),
-                            borderColor: 'rgb(75, 192, 192)',
-                            backgroundColor: 'rgb(75, 192, 192)',
-                            tension: 0.1,
-                            fill: false,
-                            pointBackgroundColor: 'rgb(75, 192, 192)'
-                        },
-                        {
-                            label: 'Average Utilization Rate (%)',
-                            data: data.map(entry => entry.average_utilization),
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: 'rgb(255, 99, 132)',
-                            tension: 0.1,
-                            fill: false,
-                            pointBackgroundColor: 'rgb(255, 99, 132)'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                padding: 25,
-                                usePointStyle: true,
-                                pointStyle: 'line',
-                                lineWidth: 2
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {
-                                stepSize: 20,
-                                callback: function(value) {
-                                    return value + '%';
-                                }
-                            },
-                            afterDataLimits: (scale) => {
-                                scale.max = scale.max * 1.05;
-                            }
-                        }
-                    },
-                    layout: {
-                        padding: {
-                            top: 15
-                        }
-                    }
-                }
-            });
-        }
-
-        function initChart() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let timeChart = null;
+    
+    function updateDateRange() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        if (startDate && endDate) {
             fetchFilteredData(startDate, endDate);
         }
-
-        function changePerPage(value) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('per_page', value);
-            url.searchParams.set('page', 1); // Reset to first page when changing items per page
-            window.location.href = url.toString();
+    }
+    
+    function showAllData() {
+        document.getElementById('startDate').value = '';
+        document.getElementById('endDate').value = '';
+        fetchFilteredData(null, null);
+    }
+    
+    function fetchFilteredData(startDate, endDate) {
+        const url = new URL("{{ url_for('get_entries') }}", window.location.origin);
+        if (startDate && endDate) {
+            url.searchParams.append('start_date', startDate);
+            url.searchParams.append('end_date', endDate);
         }
-
-        document.addEventListener('DOMContentLoaded', initChart);
-    </script>
-</body>
-</html>
+        fetch(url)
+            .then(response => response.json())
+            .then(data => updateChart(data));
+    }
+    
+    function updateChart(data) {
+        const dates = data.map(entry => entry.date);
+        const utilization = data.map(entry => (entry.actual_time / entry.available_time * 100).toFixed(1));
+        
+        // Calculate overall utilization for filtered date range
+        const totalActual = data.reduce((sum, entry) => sum + entry.actual_time, 0);
+        const totalAvailable = data.reduce((sum, entry) => sum + entry.available_time, 0);
+        const overallUtilization = totalAvailable > 0 ? ((totalActual / totalAvailable) * 100).toFixed(1) : "0.0";
+        
+        // Update the overall utilization card
+        document.querySelector('#overall-utilization-value').textContent = `${overallUtilization}%`;
+        
+        // Calculate running average utilization
+        let runningActual = 0;
+        let runningAvailable = 0;
+        const runningAvgUtilization = data.map(entry => {
+            runningActual += entry.actual_time;
+            runningAvailable += entry.available_time;
+            return runningAvailable > 0 ? ((runningActual / runningAvailable) * 100).toFixed(1) : "0.0";
+        });
+        
+        if (timeChart) {
+            timeChart.destroy();
+        }
+        
+        const ctx = document.getElementById('timeChart').getContext('2d');
+        timeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Daily Utilization Rate (%)',
+                        data: utilization,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        fill: false,
+                        pointBackgroundColor: 'rgb(75, 192, 192)'
+                    },
+                    {
+                        label: 'Average Utilization Rate (%)',
+                        data: runningAvgUtilization,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgb(255, 99, 132)',
+                        tension: 0.1,
+                        fill: false,
+                        pointBackgroundColor: 'rgb(255, 99, 132)'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            padding: 25,
+                            usePointStyle: true,
+                            pointStyle: 'line',
+                            lineWidth: 2
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            stepSize: 20,
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        },
+                        afterDataLimits: (scale) => {
+                            scale.max = scale.max * 1.05;
+                        }
+                    }
+                },
+                layout: {
+                    padding: {
+                        top: 15
+                    }
+                }
+            }
+        });
+    }
+    
+    function initChart() {
+        fetchFilteredData(null, null);
+    }
+    
+    function changePerPage(value) {
+        window.location.href = "{{ url_for('dashboard') }}?per_page=" + value;
+    }
+    
+    function exportEntries() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        let url = '{{ url_for("export_entries") }}';
+        
+        if (startDate && endDate) {
+            url += `?start_date=${startDate}&end_date=${endDate}`;
+        }
+        
+        window.location.href = url;
+    }
+    
+    document.addEventListener('DOMContentLoaded', initChart);
+</script>
+{% endblock %}

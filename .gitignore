@@ -35,6 +35,7 @@ env/
 instance/
 *.db
 *.sqlite3
+timejournal.db
 
 # OS
 .DS_Store
@@ -48,3 +49,20 @@ Thumbs.db
 # Environment variables
 .env
 .env.*
+
+# Flask
+flask_session/
+.flask_session/
+
+# Logs
+*.log
+logs/
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage.xml
+
+# pytest
+.pytest_cache/
+.cache

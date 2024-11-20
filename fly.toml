@@ -1,0 +1,30 @@
+app = "util-eyes"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000  # Changed to match Gunicorn
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+[mounts]
+  source = "util_eyes_data"
+  destination = "/app/instance"  # Specify where SQLite db should be mounted
+  initial_size_gb = 1
+
+[env]
+  FLASK_ENV = "production"
+  FLASK_APP = "app.py"
+
+# Note: Don't put SECRET_KEY here, use fly secrets instead:
+# flyctl secrets set SECRET_KEY=your-secret-key

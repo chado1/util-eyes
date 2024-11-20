@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Util-Eyes Time Tracking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center">
+                    <a href="{{ url_for('dashboard') }}" class="text-2xl sm:text-2xl font-bold text-primary">
+                        Util-Eyes 👀
+                    </a>
+                </div>
+
+                <!-- Mobile menu button -->
+                <div class="flex items-center sm:hidden">
+                    <button type="button" class="mobile-menu-button inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary" aria-controls="mobile-menu" aria-expanded="false">
+                        <span class="sr-only">Open main menu</span>
+                        <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Desktop Navigation Links -->
+                <div class="hidden sm:flex items-center space-x-8">
+                    {% if current_user.is_authenticated %}
+                        <div class="flex items-center space-x-8">
+                            {% if current_user.is_admin %}
+                                <a href="{{ url_for('admin_dashboard') }}" 
+                                   class="text-base {% if request.endpoint == 'admin_dashboard' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                                    Admin
+                                </a>
+                            {% endif %}
+                            <a href="{{ url_for('dashboard') }}" 
+                               class="text-base {% if request.endpoint == 'dashboard' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                                Dashboard
+                            </a>
+                            <a href="{{ url_for('profile') }}" 
+                               class="text-base {% if request.endpoint == 'profile' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                                Profile
+                            </a>
+                            <form action="{{ url_for('logout') }}" method="post" class="inline-block">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="text-base text-gray-700 hover:text-gray-900">
+                                    Logout
+                                </button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <div class="flex items-center space-x-8">
+                            <a href="{{ url_for('login') }}" 
+                               class="text-base {% if request.endpoint == 'login' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                                Login
+                            </a>
+                            <a href="{{ url_for('register') }}" 
+                               class="text-base {% if request.endpoint == 'register' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                                Register
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Menu -->
+        <div class="sm:hidden hidden" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.is_admin %}
+                        <a href="{{ url_for('admin_dashboard') }}" 
+                           class="block px-3 py-2 rounded-md text-base {% if request.endpoint == 'admin_dashboard' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                            Admin
+                        </a>
+                    {% endif %}
+                    <a href="{{ url_for('dashboard') }}" 
+                       class="block px-3 py-2 rounded-md text-base {% if request.endpoint == 'dashboard' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('profile') }}" 
+                       class="block px-3 py-2 rounded-md text-base {% if request.endpoint == 'profile' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                        Profile
+                    </a>
+                    <form action="{{ url_for('logout') }}" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="w-full text-left block px-3 py-2 rounded-md text-base text-gray-700 hover:text-gray-900">
+                            Logout
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="{{ url_for('login') }}" 
+                       class="block px-3 py-2 rounded-md text-base {% if request.endpoint == 'login' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                        Login
+                    </a>
+                    <a href="{{ url_for('register') }}" 
+                       class="block px-3 py-2 rounded-md text-base {% if request.endpoint == 'register' %}text-primary font-medium{% else %}text-gray-700 hover:text-gray-900{% endif %}">
+                        Register
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="mb-4 rounded-md p-4 {% if category == 'error' %}bg-red-50 text-red-800{% else %}bg-green-50 text-green-800{% endif %}" role="alert">
+                <p class="text-sm">{{ message }}</p>
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Mobile menu toggle
+        const mobileMenuButton = document.querySelector('.mobile-menu-button');
+        const mobileMenu = document.querySelector('#mobile-menu');
+        
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+    </script>
+</body>
+</html>
