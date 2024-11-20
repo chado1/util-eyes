@@ -5,8 +5,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import datetime
 import os
 from functools import wraps
-# from flask_limiter import Limiter
-# from flask_limiter.util import get_remote_address
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 from flask_wtf.csrf import CSRFProtect
 import csv
@@ -27,7 +27,7 @@ if os.getenv('FLASK_ENV') == 'production':
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-        response.headers['Content-Security-Policy'] = "default-src 'self'"
+        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data:;"
         return response
 else:  # development
     app.config['SECRET_KEY'] = os.urandom(24)
@@ -44,17 +44,23 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# limiter = Limiter(
-#     app=app,
-#     key_func=get_remote_address,
-#     default_limits=["200 per day", "50 per hour"]
-# )
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"  # Use memory storage for simplicity
+)
 
 def limit_login_attempts():
-    """Only apply rate limiting in production"""
-    if os.getenv('FLASK_ENV') == 'production':
-        return lambda x: x
-    return lambda x: x
+    """Apply rate limiting to login attempts"""
+    def decorator(f):
+        @wraps(f)
+        @limiter.limit("5 per minute")  # Limit login attempts to 5 per minute
+        def wrapped(*args, **kwargs):
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
