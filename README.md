@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A simple web application for tracking personal time utilization with authentication and security features.
+A simple web application for tracking personal time utilization with authentication and security features. Built with AI using Windsurf Editor in a little over a weekend.
 
 ## Features
 
