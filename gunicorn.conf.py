@@ -1,6 +1,9 @@
 bind = "0.0.0.0:8000"
-workers = 3
+workers = 2  # Reduced for free tier
 timeout = 120
 worker_class = "sync"
-accesslog = "/var/log/gunicorn/access.log"
-errorlog = "/var/log/gunicorn/error.log"
+# Use stdout/stderr for logging
+accesslog = "-"  # stdout
+errorlog = "-"   # stderr
+capture_output = True
+loglevel = "info"

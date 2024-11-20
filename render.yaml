@@ -3,7 +3,7 @@ services:
     name: util-eyes
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn --config gunicorn.conf.py app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
@@ -11,4 +11,6 @@ services:
         value: production
       - key: FLASK_APP
         value: app.py
+      - key: PORT
+        value: 8000
     autoDeploy: true
