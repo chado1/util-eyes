@@ -7,9 +7,9 @@ primary_region = "sjc"
 [http_service]
   internal_port = 8000  # Changed to match Gunicorn
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = false  # Prevent machines from stopping
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1  # Keep at least one machine running
   processes = ["app"]
 
 [[vm]]
