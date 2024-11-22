@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A secure web application for tracking personal time utilization with robust authentication and security features.
+A simple web application for tracking personal time utilization with authentication and security features. Built with Windsurf Editor (using Claude Sonnet 3.5) in a little over a weekend.
 
 ## Features
 
@@ -144,6 +144,7 @@ util-eyes/
 ## Future Enhancements
 
 - Multi-factor authentication
+- Password recovery
 - Advanced time tracking analytics
 - External authentication providers
 - More comprehensive logging
