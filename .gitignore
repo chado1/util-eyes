@@ -32,9 +32,6 @@ env/
 *.swo
 
 # Database
-instance/
-*.db
-*.sqlite3
 timejournal.db
 
 # OS
@@ -66,5 +63,14 @@ coverage.xml
 # pytest
 .pytest_cache/
 .cache
+
+# Test files
+test_rate_limit.sh
+cookies.txt
+
+# Local development
+instance/
+*.db
+*.sqlite3
 
 specification.txt
