@@ -567,15 +567,15 @@ def edit_entry(entry_id):
             # Validate time inputs
             if new_available_time <= 0 or new_available_time > 24:
                 flash('Available time must be between 0 and 24 hours')
-                return render_template('edit_entry.html', entry=entry)
+                return redirect(url_for('dashboard'))
                 
             if new_actual_time < 0 or new_actual_time > 24:
                 flash('Actual time must be between 0 and 24 hours')
-                return render_template('edit_entry.html', entry=entry)
+                return redirect(url_for('dashboard'))
                 
             if new_actual_time > new_available_time:
                 flash('Actual time cannot exceed available time')
-                return render_template('edit_entry.html', entry=entry)
+                return redirect(url_for('dashboard'))
             
             # Check total hours for the day
             existing_entries = TimeEntry.query.filter_by(
@@ -588,11 +588,11 @@ def edit_entry(entry_id):
             
             if total_available + new_available_time > 24:
                 flash('Total available time for the day cannot exceed 24 hours')
-                return render_template('edit_entry.html', entry=entry)
+                return redirect(url_for('dashboard'))
                 
             if total_actual + new_actual_time > 24:
                 flash('Total actual time for the day cannot exceed 24 hours')
-                return render_template('edit_entry.html', entry=entry)
+                return redirect(url_for('dashboard'))
             
             # Update entry
             entry.date = new_date
@@ -606,8 +606,19 @@ def edit_entry(entry_id):
             
         except (ValueError, TypeError):
             flash('Invalid input values')
-            return render_template('edit_entry.html', entry=entry)
+            return redirect(url_for('dashboard'))
     
+    # If it's a GET request, return JSON for the modal
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'id': entry.id,
+            'date': entry.date.strftime('%Y-%m-%d'),
+            'available_time': entry.available_time,
+            'actual_time': entry.actual_time,
+            'notes': entry.notes or ''
+        })
+    
+    # Otherwise render the template
     return render_template('edit_entry.html', entry=entry)
 
 @app.route('/delete_entry/<int:entry_id>', methods=['POST'])
