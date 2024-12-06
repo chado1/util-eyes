@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from flask_wtf.csrf import CSRFProtect
 import csv
 from io import StringIO
+from flask_migrate import Migrate
 
 # Load environment variables from .env file
 load_dotenv()
@@ -40,6 +41,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///tim
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.jinja_env.globals.update(min=min)  # Add min function to Jinja environment
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -67,19 +69,35 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
-    entries = db.relationship('TimeEntry', backref='user', lazy=True)
+    entries = db.relationship('Entry', backref='user', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
-class TimeEntry(db.Model):
+# Entry-Pursuit association table
+entry_pursuits = db.Table('entry_pursuits',
+    db.Column('entry_id', db.Integer, db.ForeignKey('entry.id'), primary_key=True),
+    db.Column('pursuit_id', db.Integer, db.ForeignKey('pursuit.id'), primary_key=True)
+)
+
+class Pursuit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Pursuit {self.name}>'
+
+class Entry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
     available_time = db.Column(db.Float, nullable=False)  # in hours
     actual_time = db.Column(db.Float, nullable=False)  # in hours
     notes = db.Column(db.Text)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    pursuits = db.relationship('Pursuit', secondary=entry_pursuits, backref='entries')
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -198,130 +216,60 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Get pagination parameters
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
+    entries = Entry.query.filter_by(user_id=current_user.id).order_by(Entry.date.desc()).all()
+    pursuits = Pursuit.query.filter_by(user_id=current_user.id).all()
     
-    # Get date range parameters
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    # Calculate statistics
+    total_available = sum(entry.available_time for entry in entries)
+    total_actual = sum(entry.actual_time for entry in entries)
+    overall_utilization = (total_actual / total_available * 100) if total_available > 0 else 0
     
-    # Base query
-    query = TimeEntry.query.filter_by(user_id=current_user.id)
+    # Prepare entries data for JavaScript
+    entries_data = [{
+        'id': entry.id,
+        'date': entry.date.strftime('%Y-%m-%d'),
+        'available_time': entry.available_time,
+        'actual_time': entry.actual_time,
+        'notes': entry.notes,
+        'pursuits': [{'id': pursuit.id, 'name': pursuit.name} for pursuit in entry.pursuits]
+    } for entry in entries]
     
-    # Apply date filters if provided
-    if start_date and end_date:
-        query = query.filter(
-            TimeEntry.date >= datetime.datetime.strptime(start_date, '%Y-%m-%d').date(),
-            TimeEntry.date <= datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
-        )
-    
-    # Order entries by date
-    query = query.order_by(TimeEntry.date.desc())
-    
-    # Get paginated entries
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    entries = pagination.items
-    
-    # Calculate overall utilization for the filtered date range
-    all_entries = query.all()  # Get all entries for the filtered range
-    if all_entries:
-        total_available = sum(entry.available_time for entry in all_entries)
-        total_actual = sum(entry.actual_time for entry in all_entries)
-        overall_utilization = round((total_actual / total_available) * 100, 2) if total_available > 0 else 0
-    else:
-        overall_utilization = 0
-
-    # If request wants JSON, return chart data
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        # Get entries ordered by date ascending for the chart
-        chart_entries = query.order_by(TimeEntry.date.asc()).all()
-        return jsonify({
-            'dates': [entry.date.strftime('%Y-%m-%d') for entry in chart_entries],
-            'available_times': [entry.available_time for entry in chart_entries],
-            'actual_times': [entry.actual_time for entry in chart_entries]
-        })
-    
-    return render_template('dashboard.html',
-                         entries=entries,
-                         pagination=pagination,
-                         per_page=per_page,
+    return render_template('dashboard.html', 
+                         entries=entries_data,
+                         pursuits=pursuits,
                          overall_utilization=overall_utilization)
 
 @app.route('/add_entry', methods=['POST'])
 @login_required
 def add_entry():
     try:
-        date = datetime.datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+        date = datetime.datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+        available_time = float(request.form['available_time'])
+        actual_time = float(request.form['actual_time'])
+        notes = request.form['notes']
         
-        # Get time values from form
-        available_time = request.form.get('available_time')
-        actual_time = request.form.get('actual_time')
-        
-        # Validate available_time
-        try:
-            available_time = float(available_time)
-            if available_time <= 0:
-                flash('Available time must be a positive number')
-                return redirect(url_for('dashboard'))
-            if available_time > 24:
-                flash('Available time cannot be more than 24 hours')
-                return redirect(url_for('dashboard'))
-        except (ValueError, TypeError):
-            flash('Available time must be a valid number')
-            return redirect(url_for('dashboard'))
-            
-        # Validate actual_time
-        try:
-            actual_time = float(actual_time)
-            if actual_time < 0:
-                flash('Actual time must be a positive number')
-                return redirect(url_for('dashboard'))
-            if actual_time > 24:
-                flash('Actual time cannot be more than 24 hours')
-                return redirect(url_for('dashboard'))
-            if actual_time > available_time:
-                flash('Actual time cannot exceed available time')
-                return redirect(url_for('dashboard'))
-        except (ValueError, TypeError):
-            flash('Actual time must be a valid number')
-            return redirect(url_for('dashboard'))
+        # Get selected pursuits (now as a list of IDs from checkboxes)
+        pursuit_ids = request.form.getlist('pursuits')
+        pursuits = Pursuit.query.filter(Pursuit.id.in_(pursuit_ids), Pursuit.user_id == current_user.id).all()
 
-        # Check total hours for the day
-        existing_entries = TimeEntry.query.filter_by(
-            user_id=current_user.id,
-            date=date
-        ).all()
-        
-        total_available = sum(entry.available_time for entry in existing_entries)
-        total_actual = sum(entry.actual_time for entry in existing_entries)
-        
-        if total_available + available_time > 24:
-            flash('Total available time for the day cannot exceed 24 hours')
-            return redirect(url_for('dashboard'))
-            
-        if total_actual + actual_time > 24:
-            flash('Total actual time for the day cannot exceed 24 hours')
-            return redirect(url_for('dashboard'))
-        
-        notes = request.form.get('notes')
-        
-        entry = TimeEntry(
+        entry = Entry(
             date=date,
             available_time=available_time,
             actual_time=actual_time,
             notes=notes,
-            user_id=current_user.id
+            user_id=current_user.id,
+            pursuits=pursuits
         )
-        
         db.session.add(entry)
         db.session.commit()
-        flash('Time entry added successfully')
-        return redirect(url_for('dashboard'))
-        
+        flash('Entry added successfully!', 'success')
     except ValueError:
-        flash('Invalid date format')
-        return redirect(url_for('dashboard'))
+        flash('Invalid input. Please check your values.', 'error')
+    except Exception as e:
+        flash('An error occurred while adding the entry.', 'error')
+        print(f"Error: {str(e)}")
+    
+    return redirect(url_for('dashboard'))
 
 @app.route('/get_entries')
 @login_required
@@ -331,17 +279,17 @@ def get_entries():
     end_date = request.args.get('end_date')
     
     # Base query
-    query = TimeEntry.query.filter_by(user_id=current_user.id)
+    query = Entry.query.filter_by(user_id=current_user.id)
     
     # Apply date filters if provided
     if start_date and end_date:
         query = query.filter(
-            TimeEntry.date >= datetime.datetime.strptime(start_date, '%Y-%m-%d').date(),
-            TimeEntry.date <= datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+            Entry.date >= datetime.datetime.strptime(start_date, '%Y-%m-%d').date(),
+            Entry.date <= datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
         )
     
     # Get entries ordered by date
-    entries = query.order_by(TimeEntry.date.asc()).all()
+    entries = query.order_by(Entry.date.asc()).all()
     
     # Aggregate entries by date
     daily_entries = {}
@@ -378,12 +326,187 @@ def get_entries():
     
     return jsonify(entries_data)
 
+@app.route('/edit_entry/<int:entry_id>', methods=['POST'])
+@login_required
+def edit_entry(entry_id):
+    entry = Entry.query.filter_by(id=entry_id, user_id=current_user.id).first_or_404()
+    
+    try:
+        entry.date = datetime.datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+        entry.available_time = float(request.form['available_time'])
+        entry.actual_time = float(request.form['actual_time'])
+        entry.notes = request.form['notes']
+        
+        # Update pursuits (now as a list of IDs from checkboxes)
+        pursuit_ids = request.form.getlist('edit_pursuits')
+        entry.pursuits = Pursuit.query.filter(Pursuit.id.in_(pursuit_ids), Pursuit.user_id == current_user.id).all()
+        
+        db.session.commit()
+        flash('Entry updated successfully!', 'success')
+    except ValueError:
+        flash('Invalid input. Please check your values.', 'error')
+    except Exception as e:
+        flash('An error occurred while updating the entry.', 'error')
+        print(f"Error: {str(e)}")
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/delete_entry/<int:entry_id>', methods=['POST'])
+@login_required
+def delete_entry(entry_id):
+    entry = Entry.query.get_or_404(entry_id)
+    
+    # Ensure users can only delete their own entries
+    if entry.user_id != current_user.id:
+        flash('You do not have permission to delete this entry.')
+        return redirect(url_for('dashboard'))
+    
+    db.session.delete(entry)
+    db.session.commit()
+    flash('Entry deleted successfully.')
+    return redirect(url_for('dashboard'))
+
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html', user=current_user)
+
+@app.route('/change_password', methods=['POST'])
+@login_required
+def change_password():
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    
+    # Verify current password
+    if not check_password_hash(current_user.password_hash, current_password):
+        flash('Current password is incorrect.', 'error')
+        return redirect(url_for('profile'))
+    
+    # Verify new password matches confirmation
+    if new_password != confirm_password:
+        flash('New passwords do not match.', 'error')
+        return redirect(url_for('profile'))
+    
+    # Validate new password
+    is_valid, message = validate_password(new_password)
+    if not is_valid:
+        flash(f'Password validation failed: {message}', 'error')
+        return redirect(url_for('profile'))
+    
+    # Update password
+    current_user.set_password(new_password)
+    db.session.commit()
+    flash('Password updated successfully.', 'success')
+    return redirect(url_for('profile'))
+
+@app.route('/delete_account', methods=['POST'])
+@login_required
+def delete_account():
+    password = request.form.get('password')
+    
+    # Check if this is the original admin account
+    is_original_admin = current_user.id == 1 and current_user.is_admin
+    if is_original_admin:
+        flash('The original admin account cannot be deleted.', 'error')
+        return redirect(url_for('profile'))
+    
+    # Verify password
+    if not check_password_hash(current_user.password_hash, password):
+        flash('Incorrect password.', 'error')
+        return redirect(url_for('profile'))
+    
+    # Delete all time entries for this user
+    Entry.query.filter_by(user_id=current_user.id).delete()
+    
+    # Delete the user account
+    db.session.delete(current_user)
+    db.session.commit()
+    
+    # Log the user out
+    logout_user()
+    flash('Your account has been deleted.', 'success')
+    return redirect(url_for('login'))
+
+@app.route('/export_entries')
+@login_required
+def export_entries():
+    # Get date range from query parameters
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Query entries
+    query = Entry.query.filter_by(user_id=current_user.id).order_by(Entry.date.desc())
+    
+    if start_date and end_date:
+        try:
+            start = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+            end = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.filter(Entry.date.between(start, end))
+        except ValueError:
+            flash('Invalid date format')
+            return redirect(url_for('dashboard'))
+    
+    entries = query.all()
+    
+    # Create CSV in memory
+    si = StringIO()
+    cw = csv.writer(si)
+    
+    # Write headers
+    cw.writerow(['Date', 'Available Time (hours)', 'Actual Time (hours)', 'Utilization Rate (%)', 'Notes'])
+    
+    # Write data
+    for entry in entries:
+        utilization = (entry.actual_time / entry.available_time * 100) if entry.available_time > 0 else 0
+        cw.writerow([
+            entry.date.strftime('%Y-%m-%d'),
+            entry.available_time,
+            entry.actual_time,
+            f"{utilization:.1f}",
+            entry.notes or ''
+        ])
+    
+    output = si.getvalue()
+    si.close()
+    
+    # Create response
+    filename = f"time_entries_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return output, 200, {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': f'attachment; filename={filename}'
+    }
+
+@app.route('/pursuits', methods=['GET', 'POST'])
+@login_required
+def manage_pursuits():
+    if request.method == 'POST':
+        pursuit_name = request.form.get('pursuit_name')
+        if pursuit_name:
+            pursuit = Pursuit(name=pursuit_name, user_id=current_user.id)
+            db.session.add(pursuit)
+            db.session.commit()
+            flash('Pursuit added successfully!', 'success')
+        return redirect(url_for('manage_pursuits'))
+
+    pursuits = Pursuit.query.filter_by(user_id=current_user.id).all()
+    return render_template('pursuits.html', pursuits=pursuits)
+
+@app.route('/pursuits/delete/<int:pursuit_id>', methods=['POST'])
+@login_required
+def delete_pursuit(pursuit_id):
+    pursuit = Pursuit.query.filter_by(id=pursuit_id, user_id=current_user.id).first_or_404()
+    db.session.delete(pursuit)
+    db.session.commit()
+    flash('Pursuit deleted successfully!', 'success')
+    return redirect(url_for('manage_pursuits'))
+
 @app.route('/admin')
 @login_required
 @admin_required
 def admin_dashboard():
     users = User.query.all()
-    all_entries = TimeEntry.query.order_by(TimeEntry.date.desc()).all()
+    all_entries = Entry.query.order_by(Entry.date.desc()).all()
     
     # Calculate overall statistics
     total_users = len(users)
@@ -393,7 +516,7 @@ def admin_dashboard():
     # Calculate average utilization per user
     user_stats = []
     for user in users:
-        user_entries = TimeEntry.query.filter_by(user_id=user.id).all()
+        user_entries = Entry.query.filter_by(user_id=user.id).all()
         if user_entries:
             total_available = sum(entry.available_time for entry in user_entries)
             total_actual = sum(entry.actual_time for entry in user_entries)
@@ -414,7 +537,7 @@ def admin_dashboard():
     # Calculate daily aggregates for the chart
     def get_admin_chart_data():
         # Get all entries ordered by date
-        entries = TimeEntry.query.order_by(TimeEntry.date.desc()).all()
+        entries = Entry.query.order_by(Entry.date.desc()).all()
         
         # Create a dictionary to store daily stats
         daily_stats = {}
@@ -540,212 +663,13 @@ def delete_user(user_id):
         return redirect(url_for('admin_dashboard'))
     
     # Delete all entries associated with the user
-    TimeEntry.query.filter_by(user_id=user.id).delete()
+    Entry.query.filter_by(user_id=user.id).delete()
     
     # Delete the user
     db.session.delete(user)
     db.session.commit()
     flash(f'Deleted user: {user.username}')
     return redirect(url_for('admin_dashboard'))
-
-@app.route('/edit_entry/<int:entry_id>', methods=['GET', 'POST'])
-@login_required
-def edit_entry(entry_id):
-    entry = TimeEntry.query.get_or_404(entry_id)
-    
-    # Ensure users can only edit their own entries
-    if entry.user_id != current_user.id:
-        flash('You do not have permission to edit this entry.')
-        return redirect(url_for('dashboard'))
-    
-    if request.method == 'POST':
-        try:
-            new_date = datetime.datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-            new_available_time = float(request.form['available_time'])
-            new_actual_time = float(request.form['actual_time'])
-            
-            # Validate time inputs
-            if new_available_time <= 0 or new_available_time > 24:
-                flash('Available time must be between 0 and 24 hours')
-                return redirect(url_for('dashboard'))
-                
-            if new_actual_time < 0 or new_actual_time > 24:
-                flash('Actual time must be between 0 and 24 hours')
-                return redirect(url_for('dashboard'))
-                
-            if new_actual_time > new_available_time:
-                flash('Actual time cannot exceed available time')
-                return redirect(url_for('dashboard'))
-            
-            # Check total hours for the day
-            existing_entries = TimeEntry.query.filter_by(
-                user_id=current_user.id,
-                date=new_date
-            ).filter(TimeEntry.id != entry_id).all()
-            
-            total_available = sum(e.available_time for e in existing_entries)
-            total_actual = sum(e.actual_time for e in existing_entries)
-            
-            if total_available + new_available_time > 24:
-                flash('Total available time for the day cannot exceed 24 hours')
-                return redirect(url_for('dashboard'))
-                
-            if total_actual + new_actual_time > 24:
-                flash('Total actual time for the day cannot exceed 24 hours')
-                return redirect(url_for('dashboard'))
-            
-            # Update entry
-            entry.date = new_date
-            entry.available_time = new_available_time
-            entry.actual_time = new_actual_time
-            entry.notes = request.form['notes']
-            
-            db.session.commit()
-            flash('Entry updated successfully!')
-            return redirect(url_for('dashboard'))
-            
-        except (ValueError, TypeError):
-            flash('Invalid input values')
-            return redirect(url_for('dashboard'))
-    
-    # If it's a GET request, return JSON for the modal
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({
-            'id': entry.id,
-            'date': entry.date.strftime('%Y-%m-%d'),
-            'available_time': entry.available_time,
-            'actual_time': entry.actual_time,
-            'notes': entry.notes or ''
-        })
-    
-    # Otherwise render the template
-    return render_template('edit_entry.html', entry=entry)
-
-@app.route('/delete_entry/<int:entry_id>', methods=['POST'])
-@login_required
-def delete_entry(entry_id):
-    entry = TimeEntry.query.get_or_404(entry_id)
-    
-    # Ensure users can only delete their own entries
-    if entry.user_id != current_user.id:
-        flash('You do not have permission to delete this entry.')
-        return redirect(url_for('dashboard'))
-    
-    db.session.delete(entry)
-    db.session.commit()
-    flash('Entry deleted successfully.')
-    return redirect(url_for('dashboard'))
-
-@app.route('/profile')
-@login_required
-def profile():
-    return render_template('profile.html', user=current_user)
-
-@app.route('/change_password', methods=['POST'])
-@login_required
-def change_password():
-    current_password = request.form.get('current_password')
-    new_password = request.form.get('new_password')
-    confirm_password = request.form.get('confirm_password')
-    
-    # Verify current password
-    if not check_password_hash(current_user.password_hash, current_password):
-        flash('Current password is incorrect.', 'error')
-        return redirect(url_for('profile'))
-    
-    # Verify new password matches confirmation
-    if new_password != confirm_password:
-        flash('New passwords do not match.', 'error')
-        return redirect(url_for('profile'))
-    
-    # Validate new password
-    is_valid, message = validate_password(new_password)
-    if not is_valid:
-        flash(f'Password validation failed: {message}', 'error')
-        return redirect(url_for('profile'))
-    
-    # Update password
-    current_user.set_password(new_password)
-    db.session.commit()
-    flash('Password updated successfully.', 'success')
-    return redirect(url_for('profile'))
-
-@app.route('/delete_account', methods=['POST'])
-@login_required
-def delete_account():
-    password = request.form.get('password')
-    
-    # Check if this is the original admin account
-    is_original_admin = current_user.id == 1 and current_user.is_admin
-    if is_original_admin:
-        flash('The original admin account cannot be deleted.', 'error')
-        return redirect(url_for('profile'))
-    
-    # Verify password
-    if not check_password_hash(current_user.password_hash, password):
-        flash('Incorrect password.', 'error')
-        return redirect(url_for('profile'))
-    
-    # Delete all time entries for this user
-    TimeEntry.query.filter_by(user_id=current_user.id).delete()
-    
-    # Delete the user account
-    db.session.delete(current_user)
-    db.session.commit()
-    
-    # Log the user out
-    logout_user()
-    flash('Your account has been deleted.', 'success')
-    return redirect(url_for('login'))
-
-@app.route('/export_entries')
-@login_required
-def export_entries():
-    # Get date range from query parameters
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    # Query entries
-    query = TimeEntry.query.filter_by(user_id=current_user.id).order_by(TimeEntry.date.desc())
-    
-    if start_date and end_date:
-        try:
-            start = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
-            end = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
-            query = query.filter(TimeEntry.date.between(start, end))
-        except ValueError:
-            flash('Invalid date format')
-            return redirect(url_for('dashboard'))
-    
-    entries = query.all()
-    
-    # Create CSV in memory
-    si = StringIO()
-    cw = csv.writer(si)
-    
-    # Write headers
-    cw.writerow(['Date', 'Available Time (hours)', 'Actual Time (hours)', 'Utilization Rate (%)', 'Notes'])
-    
-    # Write data
-    for entry in entries:
-        utilization = (entry.actual_time / entry.available_time * 100) if entry.available_time > 0 else 0
-        cw.writerow([
-            entry.date.strftime('%Y-%m-%d'),
-            entry.available_time,
-            entry.actual_time,
-            f"{utilization:.1f}",
-            entry.notes or ''
-        ])
-    
-    output = si.getvalue()
-    si.close()
-    
-    # Create response
-    filename = f"time_entries_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    return output, 200, {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': f'attachment; filename={filename}'
-    }
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
