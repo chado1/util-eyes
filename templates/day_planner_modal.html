@@ -1,0 +1,104 @@
+<!-- Day Planner Modal -->
+<div id="dayPlannerModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 w-1/2">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Day Planner</h3>
+            <button onclick="closeDayPlanner()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="space-y-4">
+            <div class="time-block-container space-y-2">
+                <!-- Time blocks will be added here dynamically -->
+            </div>
+            <div class="flex justify-between items-center">
+                <button onclick="addTimeBlock()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Add Time Block
+                </button>
+                <div class="text-sm text-gray-600 dark:text-gray-400">
+                    Total: <span id="totalTime">0</span> hours
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 mt-4">
+                <button onclick="closeDayPlanner()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                    Cancel
+                </button>
+                <button onclick="applyDayPlanner()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Apply
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTimeField = null;
+
+function openDayPlanner(field) {
+    currentTimeField = field;
+    document.getElementById('dayPlannerModal').classList.remove('hidden');
+    // Clear existing time blocks
+    document.querySelector('.time-block-container').innerHTML = '';
+    addTimeBlock(); // Add initial time block
+    updateTotalTime();
+}
+
+function closeDayPlanner() {
+    document.getElementById('dayPlannerModal').classList.add('hidden');
+    currentTimeField = null;
+}
+
+function addTimeBlock() {
+    const container = document.querySelector('.time-block-container');
+    const blockDiv = document.createElement('div');
+    blockDiv.className = 'flex items-center space-x-2';
+    blockDiv.innerHTML = `
+        <input type="time" class="time-input px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white" 
+               value="00:00" onchange="updateTotalTime()">
+        <span class="text-gray-600 dark:text-gray-400">to</span>
+        <input type="time" class="time-input px-3 py-2 border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:text-white" 
+               value="00:00" onchange="updateTotalTime()">
+        <button onclick="removeTimeBlock(this)" class="text-red-500 hover:text-red-700">
+            <i class="fas fa-trash"></i>
+        </button>
+    `;
+    container.appendChild(blockDiv);
+}
+
+function removeTimeBlock(button) {
+    button.parentElement.remove();
+    updateTotalTime();
+}
+
+function updateTotalTime() {
+    let total = 0;
+    const timeBlocks = document.querySelectorAll('.time-block-container > div');
+    
+    timeBlocks.forEach(block => {
+        const inputs = block.querySelectorAll('input[type="time"]');
+        const start = inputs[0].value;
+        const end = inputs[1].value;
+        
+        if (start && end) {
+            const startDate = new Date(`2000-01-01T${start}`);
+            const endDate = new Date(`2000-01-01T${end}`);
+            if (endDate < startDate) {
+                endDate.setDate(endDate.getDate() + 1);
+            }
+            const diff = (endDate - startDate) / (1000 * 60 * 60); // Convert to hours
+            total += diff;
+        }
+    });
+    
+    document.getElementById('totalTime').textContent = total.toFixed(2);
+}
+
+function applyDayPlanner() {
+    const total = parseFloat(document.getElementById('totalTime').textContent);
+    const input = document.getElementById(currentTimeField + '_time');
+    if (input) {
+        input.value = total.toFixed(2);
+    }
+    closeDayPlanner();
+}
+</script>

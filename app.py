@@ -216,28 +216,51 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    entries = Entry.query.filter_by(user_id=current_user.id).order_by(Entry.date.desc()).all()
     pursuits = Pursuit.query.filter_by(user_id=current_user.id).all()
+    entries_query = Entry.query.filter_by(user_id=current_user.id).order_by(Entry.date.desc()).all()
     
-    # Calculate statistics
-    total_available = sum(entry.available_time for entry in entries)
-    total_actual = sum(entry.actual_time for entry in entries)
-    overall_utilization = (total_actual / total_available * 100) if total_available > 0 else 0
+    # Calculate utilization for each entry
+    utilizations = []
+    total_utilization = 0
+    entry_count = 0
     
     # Prepare entries data for JavaScript
-    entries_data = [{
-        'id': entry.id,
-        'date': entry.date.strftime('%Y-%m-%d'),
-        'available_time': entry.available_time,
-        'actual_time': entry.actual_time,
-        'notes': entry.notes,
-        'pursuits': [{'id': pursuit.id, 'name': pursuit.name} for pursuit in entry.pursuits]
-    } for entry in entries]
+    entries = []
+    for entry in entries_query:
+        if entry.available_time > 0:  # Avoid division by zero
+            utilization = (entry.actual_time / entry.available_time) * 100
+            utilizations.append(utilization)
+            total_utilization += utilization
+            entry_count += 1
+            
+        entries.append({
+            'id': entry.id,
+            'date': entry.date.strftime('%Y-%m-%d'),
+            'available_time': entry.available_time,
+            'actual_time': entry.actual_time,
+            'notes': entry.notes,
+            'pursuits': [{'id': p.id, 'name': p.name} for p in entry.pursuits]
+        })
+    
+    # Calculate overall utilization
+    overall_utilization = total_utilization / entry_count if entry_count > 0 else 0
+    
+    # Prepare data for the chart
+    dates = [entry['date'] for entry in entries]
+    chart_utilizations = [
+        (entry['actual_time'] / entry['available_time'] * 100) if entry['available_time'] > 0 else 0 
+        for entry in entries
+    ]
     
     return render_template('dashboard.html', 
-                         entries=entries_data,
                          pursuits=pursuits,
-                         overall_utilization=overall_utilization)
+                         entries=entries,
+                         overall_utilization=overall_utilization,
+                         chart_data={
+                             'dates': dates,
+                             'utilizations': chart_utilizations,
+                             'average_utilization': overall_utilization
+                         })
 
 @app.route('/add_entry', methods=['POST'])
 @login_required
